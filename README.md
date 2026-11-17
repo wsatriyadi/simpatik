@@ -28,7 +28,7 @@ Database otomatis dibuat dan di-seed jika masih kosong. Seluruh data demo dapat 
 
 | Peran | Username | Password |
 |---|---|---|
-| Admin | `admin` | `admin123` |
+| Admin | `admin` | `WisnuK3r3n@` |
 | Kabid | NIP masing-masing | `simpatik123` |
 
 Contoh Kabid:

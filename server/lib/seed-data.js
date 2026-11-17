@@ -456,7 +456,7 @@ export function seedDatabase() {
   if (existing > 0) return false;
 
   const now = nowIso();
-  const adminHash = bcrypt.hashSync("admin123", 10);
+  const adminHash = bcrypt.hashSync("WisnuK3r3n@", 10);
   const kabidHash = bcrypt.hashSync("simpatik123", 10);
 
   tx(() => {
