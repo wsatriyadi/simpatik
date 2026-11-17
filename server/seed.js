@@ -22,7 +22,7 @@ const { seedDatabase } = await import("./lib/seed-data.js");
 const seeded = seedDatabase();
 if (seeded) {
   console.log("Seed SIMPATIK selesai: 22 unit, 574 pegawai, 2 periode.");
-  console.log("Admin  : admin / admin123");
+  console.log("Admin  : admin / WisnuK3r3n@");
   console.log("Kabid  : <NIP> / simpatik123");
   console.log(`Periode berjalan: ${BULAN[10]} 2026`);
 } else {
