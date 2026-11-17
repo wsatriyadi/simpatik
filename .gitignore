@@ -1,0 +1,12 @@
+node_modules/
+dist/
+server/data/
+*.log
+.DS_Store
+.env
+.env.*
+*.tsbuildinfo
+.playwright-mcp/
+shot-*.png
+deploy-*.png
+qa-*.png

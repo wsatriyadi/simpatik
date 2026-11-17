@@ -1,0 +1,706 @@
+# PRD — SIMPATIK
+
+## Sistem Monitoring Kepatuhan Pakaian Dinas & Atribut ASN
+
+### RSJ Sambang Lihum
+
+| | |
+|---|---|
+| Dokumen | Product Requirements Document (PRD) |
+| Nama Aplikasi | SIMPATIK — Sistem Monitoring Kepatuhan Pakaian Dinas & Atribut ASN |
+| Institusi | Rumah Sakit Jiwa Sambang Lihum, Pemerintah Provinsi Kalimantan Selatan |
+| Versi | Draft v0.3 |
+| Tanggal | 17 November 2026 |
+| Status | Draft — keputusan desain #1–#11 terkunci; pembangunan aplikasi belum dimulai |
+| Sumber Data Awal | Berkas "Cheklist Pakaian Dinas.xlsx" (Formulir Ceklist Monitoring Kepatuhan Pakaian Dinas ASN RSJ Sambang Lihum Tahun 2026, periode contoh: Oktober 2026) |
+
+---
+
+## Daftar Isi
+
+1. Pendahuluan
+2. Gambaran Umum Produk
+3. Data Dasar dari Formulir Asal
+4. Peran dan Hak Akses
+5. Alur Proses Bisnis
+6. Kebutuhan Fungsional
+7. Aturan Bisnis dan Rumus Kepatuhan
+8. Model Data
+9. Daftar Layar
+10. Integrasi SIMPEG
+11. Kebutuhan Non-Fungsional
+12. Batasan dan Asumsi
+13. Fase Pengembangan
+14. Keputusan Desain Terkunci
+15. Hal yang Masih Terbuka
+16. Lampiran A — Daftar Unit Kerja dan Pemetaan Penanggung Jawab
+17. Lampiran B — Format Laporan Per Unit
+18. Lampiran C — Temuan Kualitas Data Awal
+19. Lampiran D — Contoh Desain Antarmuka
+20. Riwayat Versi
+
+---
+
+## 1. Pendahuluan
+
+### 1.1 Latar Belakang
+
+Monitoring kepatuhan pakaian dinas ASN di RSJ Sambang Lihum saat ini dilakukan dengan formulir Excel berisi 22 lembar kerja (tab) — satu tab untuk setiap unit kerja — yang mencakup 574 pegawai. Setiap bulan, Kepala Bidang (Kabid) menilai kepatuhan pakaian dinas dan atribut setiap pegawai di unit-unit bawahannya, lalu hasilnya direkap secara manual.
+
+Cara ini menimbulkan beberapa masalah:
+
+- Pengisian dan perekapan manual lambat dan rawan salah hitung, terutama untuk unit besar (Instalasi Rawat Inap sendiri berisi 232 pegawai).
+- Tidak ada pemantauan progres terpusat: tidak terlihat unit mana yang sudah dinilai dan mana yang belum.
+- Data pegawai pada berkas tidak terpelihara sebagai data induk: ditemukan NIP duplikat, NIP kosong, dan NIP tidak lengkap (lihat Lampiran C).
+- Riwayat antarbulan sulit dibandingkan karena setiap bulan adalah berkas terpisah.
+
+SIMPATIK mendigitalkan proses ini: Admin menyiapkan data induk dan membuka periode bulanan, Kabid menilai pegawainya melalui daftar berfoto di telepon genggam, dan sistem menghitung kepatuhan serta menghasilkan laporan resmi secara otomatis.
+
+### 1.2 Tujuan
+
+- Mempercepat penilaian kepatuhan pakaian dinas oleh Kabid, termasuk untuk unit beranggotakan ratusan pegawai.
+- Menghilangkan perhitungan rekap manual dan kesalahan hitung.
+- Memberikan pemantauan progres penilaian seluruh unit secara terpusat kepada Admin.
+- Menghasilkan laporan per unit dalam format formulir resmi yang sama dengan formulir asal, serta rekap gabungan seluruh rumah sakit.
+- Menyediakan data kepatuhan bulanan yang konsisten dan dapat dibandingkan antarperiode.
+
+### 1.3 Ruang Lingkup
+
+Termasuk dalam ruang lingkup Fase 1:
+
+- Pengelolaan data induk: unit kerja, pegawai, akun pengguna, penugasan Kabid ke unit, dan item periksa.
+- Impor data pegawai awal dari berkas Excel yang ada, dengan validasi dan peringatan kualitas data.
+- Sinkronisasi foto dan identitas pegawai dari API SIMPEG Pemerintah Provinsi Kalimantan Selatan berdasarkan NIP.
+- Periode monitoring bulanan: pembukaan, pengisian, penandaan selesai, dan penutupan oleh Admin.
+- Penilaian oleh Kabid melalui daftar pegawai berfoto dan halaman detail pegawai beserta ceklistnya.
+- Rekap otomatis per formulir, per unit, per bidang, dan gabungan rumah sakit.
+- Ekspor laporan Excel dan PDF.
+
+Di luar ruang lingkup Fase 1 (dicatat sebagai kandidat Fase 2, lihat Bab 13): pengingat WhatsApp otomatis, mode pengisian luring (offline), tanda tangan digital, foto bukti pelanggaran, dan grafik tren antarbulan.
+
+### 1.4 Definisi Istilah
+
+| Istilah | Arti |
+|---|---|
+| Periode | Satu bulan monitoring (bulan + tahun). Satu periode berisi satu formulir untuk setiap unit kerja. |
+| Formulir | Ceklist satu unit kerja pada satu periode, berisi daftar pegawai unit tersebut pada periode itu. |
+| Item Periksa | Satu aspek yang dinilai pada seorang pegawai (mis. ID Card, Name Tag). |
+| Diperiksa | Pegawai yang dinilai 8 item periksanya oleh Kabid pada periode berjalan. |
+| Tidak Diperiksa | Pegawai yang pada periode berjalan tidak dapat dinilai (cuti, sakit, dinas luar, dll.) dan ditandai beserta alasannya. |
+| Patuh | Pegawai yang diperiksa dan memenuhi seluruh item periksa. |
+| Tidak Patuh | Pegawai yang diperiksa dan tidak memenuhi satu item periksa atau lebih. |
+| Tandai Selesai | Tindakan Kabid menyatakan pengisian satu formulir selesai; bukan penguncian. |
+| Penutupan Periode | Tindakan Admin mengunci seluruh formulir pada satu periode menjadi arsip final. |
+| SIMPEG | Sistem Informasi Kepegawaian Pemerintah Provinsi Kalimantan Selatan (simpeg.kalselprov.go.id). |
+
+---
+
+## 2. Gambaran Umum Produk
+
+### 2.1 Nama dan Identitas
+
+Nama aplikasi adalah **SIMPATIK**, kepanjangan **Sistem Monitoring Kepatuhan Pakaian Dinas & Atribut ASN**. Nama ini tampil pada ikon PWA, halaman masuk, dan kepala laporan.
+
+### 2.2 Platform
+
+Aplikasi adalah **satu sistem web responsif dengan kemampuan PWA (Progressive Web App)**:
+
+- Admin mengakses melalui peramban di komputer/laptop.
+- Kabid mengakses melalui peramban di telepon genggam dan dapat memasang aplikasi ke layar utama (home screen) sehingga tampil sebagai ikon aplikasi dan terbuka layar penuh, tanpa melalui Play Store dan tanpa berkas APK.
+- Pembaruan aplikasi cukup dilakukan di server; seluruh pemakai langsung menggunakan versi terbaru.
+- Pengisian pada Fase 1 memerlukan koneksi internet ke server.
+
+### 2.3 Pengguna
+
+Hanya ada dua peran pengguna:
+
+- **Admin** — pengelola sistem dan data induk, pembuka dan penutup periode, pemantau progres, dan penarik rekap gabungan. Diperkirakan 1–2 orang (lingkup Bagian Umum & Kepegawaian/UMPEG).
+- **Kabid** — Kepala Bidang (atau pejabat penanggung jawab unit) yang menilai pegawai pada unit-unit yang ditugaskan kepadanya. Dari data asal terdapat sekitar 10 penanggung jawab untuk 22 unit kerja.
+
+### 2.4 Prinsip Desain Utama
+
+- **Satu Kabid membawahi banyak unit.** Akun Kabid terhubung ke daftar unit, bukan satu unit.
+- **Pengisian harus cepat untuk ratusan pegawai.** Mayoritas pegawai patuh, sehingga tersedia tindakan massal "Semua Patuh"; Kabid hanya mengubah pengecualian.
+- **Angka tidak boleh berubah diam-diam.** Selama periode berjalan angka bersifat sementara; angka menjadi final hanya setelah Admin menutup periode.
+- **Data lama tidak berubah oleh aturan baru.** Daftar pegawai, daftar item periksa, dan identitas penanda tangan disimpan sebagai cuplikan (snapshot) per periode.
+
+---
+
+## 3. Data Dasar dari Formulir Asal
+
+Seluruh desain pada dokumen ini diturunkan dari berkas formulir asal, bukan asumsi umum.
+
+### 3.1 Skala Data
+
+- 22 unit kerja, total 574 pegawai (daftar lengkap pada Lampiran A).
+- Unit terbesar: Instalasi Rawat Inap (232 pegawai), diikuti Bagian Umum Kepegawaian (47), Instalasi Farmasi dan Bidang Penunjang Non Medik (masing-masing 27).
+- Beban penanggung jawab timpang: Kabid Keperawatan bertanggung jawab atas 260 pegawai pada 3 unit; Kabid Penunjang Medik atas 134 pegawai pada 10 unit; penanggung jawab lain masing-masing 7–47 pegawai.
+
+### 3.2 Item Periksa Awal
+
+Formulir asal menilai 8 item untuk setiap pegawai:
+
+| No | Item Periksa | Kelompok pada Formulir Asal |
+|---|---|---|
+| 1 | Pakaian dinas sesuai hari | Pakaian Dinas |
+| 2 | Rapi, bersih, sopan, dan layak pakai | Pakaian Dinas |
+| 3 | ID Card | Atribut Lengkap |
+| 4 | Name Tag | Atribut Lengkap |
+| 5 | Korpri | Atribut Lengkap |
+| 6 | PIN Jujur | Atribut Lengkap |
+| 7 | Lambang Pemda | Atribut Lengkap |
+| 8 | Sepatu sesuai ketentuan (hitam/coklat gelap) | Sepatu |
+
+Kedelapan item ini menjadi isi awal daftar item periksa pada sistem dan dapat dikelola Admin untuk periode-periode berikutnya (lihat FR-ITM).
+
+### 3.3 Rekap pada Formulir Asal
+
+Setiap formulir asal ditutup dengan empat isian rekap: Total Pegawai Diperiksa, Jumlah Patuh, Jumlah Pelanggaran, dan Jenis Pelanggaran Terbanyak; serta blok tanda tangan atasan (Kepala Bidang penanggung jawab) berisi nama dan NIP. Pada SIMPATIK, keempat angka ini dihitung otomatis dan blok tanda tangan diisi dari cuplikan identitas Kabid pengisi.
+
+### 3.4 Temuan Kualitas Data
+
+Berkas asal memuat ketidaksempurnaan data yang harus ditangani pada impor awal: 18 NIP terduplikat, 3 pegawai tanpa NIP, dan 39 pegawai dengan NIP 15 digit yang tidak ditemukan pada SIMPEG. Rincian dan penanganannya pada Lampiran C.
+
+---
+
+## 4. Peran dan Hak Akses
+
+### 4.1 Matriks Hak Akses
+
+| Kemampuan | Admin | Kabid |
+|---|:---:|:---:|
+| Masuk (login) dengan username + password | Ya | Ya |
+| Mengelola akun pengguna (buat, reset password, nonaktifkan) | Ya | Tidak |
+| Mengelola unit kerja | Ya | Tidak |
+| Mengelola data pegawai (tambah, ubah, pindah unit, nonaktifkan) | Ya | Tidak |
+| Menugaskan Kabid ke unit | Ya | Tidak |
+| Mengelola item periksa | Ya | Tidak |
+| Mengimpor pegawai dari Excel dan sinkronisasi SIMPEG | Ya | Tidak |
+| Membuka dan menutup periode | Ya | Tidak |
+| Melihat daftar unit | Semua unit | Hanya unit tugasnya |
+| Mengisi dan mengubah ceklist | Tidak | Hanya unit tugasnya, selama periode belum ditutup |
+| Menandai formulir selesai | Tidak | Ya, untuk unit tugasnya |
+| Melihat rekap bidang/unit sendiri | Ya | Ya, unit tugasnya |
+| Melihat rekap gabungan seluruh RS | Ya | Tidak |
+| Mengunduh laporan per unit (Excel/PDF) | Semua unit | Hanya unit tugasnya |
+| Mengunduh rekap gabungan (Excel/PDF) | Ya | Tidak |
+| Mengganti password sendiri | Ya | Ya |
+
+### 4.2 Aturan Akses
+
+- Kabid tidak dapat melihat data, formulir, maupun rekap unit di luar tugasnya; permintaan akses ke unit lain ditolak sistem.
+- Admin tidak mengisi ceklist. Apabila ada kesalahan isi, perbaikan dilakukan oleh Kabid pemilik formulir selama periode belum ditutup.
+- Setiap akun terhubung ke satu orang. Pergantian pejabat dilakukan Admin dengan menonaktifkan akun lama, membuat akun baru, dan mengalihkan penugasan unit; riwayat formulir lama tetap atas nama pejabat lama (cuplikan penanda tangan per periode, lihat FR-NILAI-09).
+
+---
+
+## 5. Alur Proses Bisnis
+
+### 5.1 Siklus Satu Periode
+
+1. **Admin membuka periode** (mis. November 2026). Sistem membuat satu formulir kosong untuk setiap unit kerja aktif, berisi cuplikan daftar pegawai unit tersebut dan cuplikan daftar item periksa yang aktif saat itu.
+2. **Kabid menilai.** Untuk setiap unit tugasnya, Kabid membuka daftar pegawai berfoto, menilai setiap pegawai atau menandainya Tidak Diperiksa, dan menyimpan progresnya. Pengisian boleh dicicil; draf tersimpan otomatis.
+3. **Kabid menandai selesai** untuk formulir yang seluruh pegawainya sudah berstatus. Sistem mencatat tanggal penandaan selesai sebagai tanggal pemeriksaan formulir pada laporan. Formulir yang ditandai selesai masih dapat diubah Kabid selama periode belum ditutup; pengubahan mengembalikan statusnya menjadi Sedang Diisi.
+4. **Admin memantau progres** seluruh unit pada dasbor: Belum Mulai, Sedang Diisi (dengan persentase), atau Sudah Ditandai Selesai, beserta Kabid penanggung jawabnya.
+5. **Admin menutup periode** setelah seluruh formulir selesai. Seluruh formulir terkunci permanen, angka menjadi final, dan laporan kehilangan cap "SEMENTARA".
+6. **Laporan diterbitkan.** Kabid mengunduh laporan unitnya; Admin mengunduh laporan per unit mana pun dan rekap gabungan rumah sakit.
+
+### 5.2 Status Formulir
+
+| Status | Arti | Dapat Diubah Kabid |
+|---|---|---|
+| Belum Mulai | Formulir dibuat, belum ada pegawai dinilai | Ya |
+| Sedang Diisi | Sebagian pegawai sudah berstatus, atau formulir pernah ditandai selesai lalu diubah lagi | Ya |
+| Ditandai Selesai | Seluruh pegawai sudah berstatus dan Kabid menandai selesai | Ya, selama periode belum ditutup (status kembali ke Sedang Diisi) |
+| Terkunci | Periode sudah ditutup Admin | Tidak |
+
+### 5.3 Status Penilaian Pegawai
+
+| Status | Arti |
+|---|---|
+| Belum Dinilai | Pegawai belum diberi nilai maupun tanda Tidak Diperiksa |
+| Patuh | Diperiksa dan seluruh item terpenuhi |
+| Tidak Patuh | Diperiksa dan satu item atau lebih tidak terpenuhi |
+| Tidak Diperiksa | Tidak dinilai pada periode ini, wajib beserta alasan |
+
+Formulir hanya dapat ditandai selesai apabila tidak ada lagi pegawai berstatus Belum Dinilai.
+
+---
+
+## 6. Kebutuhan Fungsional
+
+Penomoran kebutuhan: FR-\<modul\>-\<nomor\>. Prioritas: W = Wajib (Fase 1), F2 = kandidat Fase 2.
+
+### 6.1 Modul Autentikasi (FR-AUTH)
+
+| ID | Kebutuhan | Prioritas |
+|---|---|---|
+| FR-AUTH-01 | Pengguna masuk dengan username dan password. Username Kabid adalah NIP yang bersangkutan. Tidak ada pendaftaran mandiri dan tidak ada masuk dengan akun Google. | W |
+| FR-AUTH-02 | Akun dibuat, dinonaktifkan, dan password-nya direset oleh Admin. Pengguna dapat mengganti passwordnya sendiri setelah masuk. | W |
+| FR-AUTH-03 | Password tersimpan terenkripsi satu arah (hash); tidak ada pihak yang dapat melihat password pengguna, termasuk Admin. | W |
+| FR-AUTH-04 | Setelah masuk, pengguna diarahkan sesuai perannya: Admin ke dasbor pemantauan, Kabid ke daftar unit tugasnya. | W |
+
+### 6.2 Modul Data Induk (FR-ADM)
+
+| ID | Kebutuhan | Prioritas |
+|---|---|---|
+| FR-ADM-01 | Admin mengelola unit kerja: nama unit, status aktif/nonaktif. Unit yang sudah memiliki formulir tidak dapat dihapus, hanya dinonaktifkan. | W |
+| FR-ADM-02 | Admin mengelola pegawai: nama, NIP, unit kerja, status aktif/nonaktif. Pegawai yang pindah unit diubah unitnya pada data induk; formulir periode yang sudah berjalan dan yang sudah ditutup tidak berubah. | W |
+| FR-ADM-03 | NIP bukan kunci utama sistem. Sistem menggunakan ID internal; NIP yang sama untuk dua pegawai berbeda menghasilkan peringatan duplikat, bukan penolakan. | W |
+| FR-ADM-04 | Admin menugaskan satu akun Kabid ke satu atau banyak unit kerja, dan dapat mengalihkan penugasan kapan pun untuk periode yang belum ditutup. | W |
+| FR-ADM-05 | Data pegawai menampilkan foto dan identitas hasil sinkronisasi SIMPEG (lihat Bab 10): foto, jabatan, pangkat/golongan, status kepegawaian (PNS/PPPK). | W |
+
+### 6.3 Modul Impor Data Awal (FR-IMP)
+
+| ID | Kebutuhan | Prioritas |
+|---|---|---|
+| FR-IMP-01 | Admin mengimpor pegawai dari berkas Excel berformat sama dengan formulir asal (satu tab per unit; kolom No, Nama, NIP). Setiap tab menjadi unit kerja dan isinya menjadi daftar pegawai unit tersebut. | W |
+| FR-IMP-02 | Hasil impor menampilkan laporan validasi sebelum disimpan: jumlah pegawai per unit, NIP duplikat (beserta nama-nama pemiliknya), NIP kosong, dan NIP yang tidak ditemukan pada SIMPEG. Admin memutuskan melanjutkan atau membatalkan. | W |
+| FR-IMP-03 | Pegawai tanpa NIP atau dengan NIP tidak lengkap tetap dapat diimpor dan dinilai; konsekuensinya pegawai tersebut tidak memiliki foto dan detail SIMPEG sampai NIP-nya diperbaiki pada data induk. | W |
+
+### 6.4 Modul Item Periksa (FR-ITM)
+
+| ID | Kebutuhan | Prioritas |
+|---|---|---|
+| FR-ITM-01 | Admin mengelola item periksa: tambah, ubah nama, ubah urutan, dan nonaktifkan. Item yang pernah dipakai tidak dapat dihapus permanen. | W |
+| FR-ITM-02 | Perubahan item hanya berlaku mulai periode berikutnya. Saat periode dibuka, daftar item aktif disalin menjadi cuplikan periode tersebut; seluruh formulir pada periode itu memakai cuplikan ini. | W |
+| FR-ITM-03 | Isi awal daftar item adalah 8 item dari formulir asal (Bab 3.2). | W |
+
+### 6.5 Modul Periode (FR-PER)
+
+| ID | Kebutuhan | Prioritas |
+|---|---|---|
+| FR-PER-01 | Admin membuka periode baru dengan memilih bulan dan tahun. Sistem membuat satu formulir per unit aktif, berisi cuplikan pegawai unit dan cuplikan item periode. | W |
+| FR-PER-02 | Hanya boleh ada satu periode berstatus berjalan pada satu waktu. Periode baru tidak dapat dibuka sebelum periode sebelumnya ditutup, kecuali Admin menutup periode sebelumnya terlebih dahulu. | W |
+| FR-PER-03 | Admin menutup periode. Penutupan mengunci seluruh formulir pada periode tersebut secara permanen dan mengubah status rekap menjadi final. Sistem memperingatkan Admin apabila masih ada formulir yang belum ditandai selesai, dan Admin memutuskan tetap menutup atau membatalkan. | W |
+| FR-PER-04 | Periode yang sudah ditutup tidak dapat dibuka kembali. Koreksi atas periode tertutup tidak dilakukan melalui sistem (dituangkan pada berita acara di luar sistem bila diperlukan). | W |
+
+### 6.6 Modul Penilaian oleh Kabid (FR-NILAI)
+
+| ID | Kebutuhan | Prioritas |
+|---|---|---|
+| FR-NILAI-01 | Kabid melihat daftar unit tugasnya untuk periode berjalan, masing-masing dengan progres pengisian (jumlah pegawai berstatus dari total pegawai). | W |
+| FR-NILAI-02 | Di dalam satu unit, Kabid melihat daftar pegawai beserta foto (dari SIMPEG), nama, NIP, jabatan, dan lencana status penilaian (Belum Dinilai / Patuh / Tidak Patuh / Tidak Diperiksa). Tersedia pencarian nama dan saringan "belum dinilai saja" serta "tidak patuh saja". | W |
+| FR-NILAI-03 | Mengklik satu pegawai membuka halaman detail pegawai: foto berukuran besar, identitas dari SIMPEG (nama lengkap dengan gelar, NIP, jabatan, pangkat/golongan, status kepegawaian, unit), dan ceklist pegawai tersebut. | W |
+| FR-NILAI-04 | Pada halaman detail, Kabid menilai setiap item periksa dengan pilihan Memenuhi / Tidak Memenuhi. Tersedia tombol "Semua Patuh" yang menandai seluruh item Memenuhi dalam satu ketukan. | W |
+| FR-NILAI-05 | Pada halaman detail, Kabid dapat menandai pegawai sebagai Tidak Diperiksa dengan memilih alasan (Cuti, Sakit, Dinas Luar/Tugas, Lainnya) dan keterangan bebas bila perlu. Pegawai Tidak Diperiksa tidak memerlukan pengisian item. | W |
+| FR-NILAI-06 | Tersedia kolom keterangan per pegawai untuk catatan, misalnya item yang dilanggar. | W |
+| FR-NILAI-07 | Tombol "Simpan & Berikutnya" menyimpan nilai pegawai dan langsung membuka pegawai berikutnya yang belum dinilai pada unit yang sama. | W |
+| FR-NILAI-08 | Setiap penyimpanan langsung tersimpan sebagai draf di server; Kabid dapat berhenti di tengah pengisian dan melanjutkannya kemudian dari perangkat yang sama atau berbeda. | W |
+| FR-NILAI-09 | Setelah seluruh pegawai berstatus, Kabid menandai formulir Selesai. Sistem mencatat tanggal penandaan sebagai tanggal pemeriksaan formulir, dan menyimpan cuplikan nama, NIP, dan jabatan Kabid pengisi sebagai penanda tangan laporan formulir tersebut. | W |
+| FR-NILAI-10 | Formulir yang sudah ditandai selesai tetap dapat diubah Kabid selama periode belum ditutup; pengubahan mengembalikan status formulir menjadi Sedang Diisi dan tanggal pemeriksaan diperbarui pada penandaan selesai berikutnya. | W |
+| FR-NILAI-11 | Di beranda Kabid tampil pengingat mencolok untuk setiap formulirnya yang belum ditandai selesai, beserta sisa pegawai yang belum berstatus. | W |
+
+### 6.7 Modul Pemantauan dan Rekap Admin (FR-REK)
+
+| ID | Kebutuhan | Prioritas |
+|---|---|---|
+| FR-REK-01 | Dasbor Admin menampilkan status seluruh formulir periode berjalan: Belum Mulai, Sedang Diisi (persentase), Ditandai Selesai, beserta nama Kabid penanggung jawab setiap unit. | W |
+| FR-REK-02 | Sistem menghitung otomatis untuk setiap formulir: Total Pegawai, Diperiksa, Patuh, Tidak Patuh, Tidak Diperiksa, Persentase Kepatuhan, dan Jenis Pelanggaran Terbanyak (item yang paling sering Tidak Memenuhi pada formulir itu). | W |
+| FR-REK-03 | Rekap per bidang menggabungkan seluruh unit di bawah satu Kabid dengan rumus yang sama. | W |
+| FR-REK-04 | Rekap gabungan rumah sakit menggabungkan seluruh unit, menampilkan persentase kepatuhan per unit dan per bidang, peringkat unit, serta item yang paling sering dilanggar di seluruh rumah sakit pada periode tersebut. | W |
+| FR-REK-05 | Selama periode belum ditutup, seluruh tampilan dan keluaran rekap diberi tanda "SEMENTARA". Tanda hilang setelah periode ditutup. | W |
+
+### 6.8 Modul Laporan (FR-LAP)
+
+| ID | Kebutuhan | Prioritas |
+|---|---|---|
+| FR-LAP-01 | Laporan per unit tersedia dalam format Excel dan PDF dengan tata letak formulir resmi asal: judul formulir, bulan, unit kerja, hari/tanggal (tanggal pemeriksaan otomatis), tabel tanda √ per pegawai per item, rekap empat angka, dan blok tanda tangan "Atasan, Kepala Bidang …" berisi nama dan NIP Kabid pengisi. | W |
+| FR-LAP-02 | Pegawai Tidak Diperiksa tampil pada laporan dengan tanda khusus pada kolom keterangan beserta alasannya, dan tidak diberi tanda √ maupun tanda silang pada item. | W |
+| FR-LAP-03 | Rekap gabungan rumah sakit tersedia dalam format Excel dan PDF, hanya untuk Admin. | W |
+| FR-LAP-04 | Kabid hanya dapat mengunduh laporan unit tugasnya; Admin dapat mengunduh laporan semua unit dan rekap gabungan. | W |
+| FR-LAP-05 | Laporan dari periode yang belum ditutup mencantumkan cap "SEMENTARA" pada setiap halaman/lembar. | W |
+
+### 6.9 Modul Riwayat Perubahan (FR-AUD)
+
+| ID | Kebutuhan | Prioritas |
+|---|---|---|
+| FR-AUD-01 | Sistem mencatat riwayat untuk setiap formulir: kapan dibuat, setiap penandaan selesai (oleh siapa, kapan), pengubahan setelah penandaan selesai, dan penutupan periode. Admin dapat melihat riwayat ini. | W |
+| FR-AUD-02 | Sistem mencatat perubahan data induk yang penting: pembuatan akun, reset password, perubahan penugasan Kabid, dan perubahan item periksa (beserta periode mulai berlakunya). | W |
+
+---
+
+## 7. Aturan Bisnis dan Rumus Kepatuhan
+
+| ID | Aturan |
+|---|---|
+| BR-01 | Patuh: pegawai Diperiksa dan seluruh item pada cuplikan item periodenya berstatus Memenuhi. Satu item saja Tidak Memenuhi menjadikan pegawai Tidak Patuh. |
+| BR-02 | Persentase Kepatuhan = Jumlah Patuh ÷ Jumlah Diperiksa × 100%. Pegawai Tidak Diperiksa tidak masuk pembilang maupun penyebut. |
+| BR-03 | Jumlah Diperiksa = Jumlah Patuh + Jumlah Tidak Patuh. Total Pegawai = Diperiksa + Tidak Diperiksa + Belum Dinilai. |
+| BR-04 | Jenis Pelanggaran Terbanyak adalah item dengan jumlah Tidak Memenuhi terbesar pada lingkup rekapnya (formulir, bidang, atau rumah sakit). Apabila seri, seluruh item yang seri ditampilkan. |
+| BR-05 | Formulir dapat ditandai selesai hanya apabila Belum Dinilai = 0. |
+| BR-06 | Tanggal pemeriksaan formulir adalah tanggal terakhir Kabid menandai formulir tersebut selesai sebelum periode ditutup. |
+| BR-07 | Daftar pegawai pada formulir adalah cuplikan saat periode dibuka. Pegawai yang masuk, pindah, atau keluar setelah periode dibuka tidak mengubah formulir periode berjalan; perubahan berlaku mulai periode berikutnya. |
+| BR-08 | Penanda tangan laporan adalah Kabid yang menandai formulir selesai (cuplikan nama, NIP, jabatan saat penandaan). Apabila formulir ditandai selesai oleh Kabid berbeda setelah pengalihan tugas, penanda tangan mengikuti penandaan terakhir. |
+
+---
+
+## 8. Model Data
+
+Entitas utama dan atribut pentingnya:
+
+| Entitas | Atribut Penting | Keterangan |
+|---|---|---|
+| Pengguna | id, nama, NIP (username), password_hash, peran (Admin/Kabid), jabatan, aktif | Satu akun per orang. |
+| UnitKerja | id, nama, aktif | 22 unit pada data awal. |
+| PenugasanKabid | id, pengguna_id, unit_id | Satu Kabid dapat memiliki banyak unit; satu unit memiliki satu Kabid penanggung jawab pada satu waktu. |
+| Pegawai | id, nama, NIP (boleh kosong/duplikat dengan peringatan), unit_id, aktif | Data induk; penugasan ke unit dikelola Admin. |
+| IdentitasSimpeg | pegawai_id, nama_simpeg, gelar_depan, gelar_belakang, jabatan, pangkat, golongan, status_kepegawaian, satker, unker, url_foto, waktu_sinkron_terakhir | Salinan hasil sinkronisasi SIMPEG; bukan sumber kebenaran penugasan unit. |
+| ItemPeriksa | id, nama, urutan, aktif | Dikelola Admin (FR-ITM). |
+| Periode | id, bulan, tahun, status (Berjalan/Ditutup), dibuka_oleh, dibuka_pada, ditutup_oleh, ditutup_pada | Satu periode berjalan pada satu waktu. |
+| ItemPeriode | periode_id, item_id, nama_saat_itu, urutan | Cuplikan item untuk satu periode. |
+| Formulir | id, periode_id, unit_id, kabid_id (penanggung jawab saat dibuka), status, tanggal_pemeriksaan, penanda_tangan_nama, penanda_tangan_nip, penanda_tangan_jabatan | Satu formulir per unit per periode. |
+| PegawaiFormulir | formulir_id, pegawai_id, nama_saat_itu, nip_saat_itu | Cuplikan daftar pegawai formulir. |
+| HasilPenilaian | pegawai_formulir_id, status (Belum Dinilai/Patuh/Tidak Patuh/Tidak Diperiksa), alasan_tidak_diperiksa, keterangan, dinilai_oleh, dinilai_pada | Status Patuh/Tidak Patuh diturunkan dari HasilItem dan disimpan untuk kecepatan rekap. |
+| HasilItem | hasil_penilaian_id, item_periode_id, memenuhi (ya/tidak) | Satu baris per item per pegawai. |
+| RiwayatFormulir | formulir_id, kejadian, oleh, pada, catatan | Untuk FR-AUD. |
+
+Hubungan kunci: Periode 1—n Formulir; UnitKerja 1—n Formulir (lintas periode); Formulir 1—n PegawaiFormulir 1—1 HasilPenilaian 1—n HasilItem.
+
+---
+
+## 9. Daftar Layar
+
+Contoh visual untuk layar-layar utama dapat dilihat pada Lampiran D.
+
+### 9.1 Layar Admin
+
+| Layar | Isi Utama |
+|---|---|
+| Masuk | Username + password. |
+| Dasbor Periode | Status periode berjalan; tabel 22 unit dengan status formulir, progres %, Kabid penanggung jawab; tombol Buka Periode dan Tutup Periode. |
+| Kelola Unit | Daftar unit, tambah/ubah/nonaktifkan. |
+| Kelola Pegawai | Daftar pegawai dengan foto, saringan per unit, pencarian nama/NIP; tambah/ubah/pindah unit/nonaktifkan; peringatan NIP duplikat/kosong; tombol Sinkronkan SIMPEG (per pegawai atau massal per unit). |
+| Impor Pegawai | Unggah Excel, laporan validasi impor, konfirmasi simpan. |
+| Kelola Pengguna & Penugasan | Daftar akun Admin/Kabid; buat akun, reset password, nonaktifkan; atur unit tugas setiap Kabid. |
+| Kelola Item Periksa | Daftar item, tambah/ubah urutan/nonaktifkan; keterangan periode mulai berlaku. |
+| Rekap Gabungan | Tabel rekap per unit dan per bidang, peringkat kepatuhan, pelanggaran terbanyak; unduh Excel/PDF. |
+| Detail Formulir (baca-saja) | Isi satu formulir beserta riwayat perubahannya. |
+| Pengaturan Akun | Ganti password sendiri. |
+
+### 9.2 Layar Kabid (PWA, telepon genggam)
+
+| Layar | Isi Utama |
+|---|---|
+| Masuk | Username (NIP) + password. |
+| Beranda | Pengingat formulir belum selesai; daftar unit tugas dengan progres masing-masing. |
+| Daftar Pegawai Unit | Daftar berfoto dengan lencana status; pencarian; saringan status; garis progres unit. |
+| Detail Pegawai & Ceklist | Foto besar, identitas SIMPEG, pilihan Tidak Diperiksa + alasan, 8 item periksa, tombol Semua Patuh, keterangan, Simpan & Berikutnya. |
+| Ringkasan Formulir | Rekap formulir (Total, Diperiksa, Patuh, Tidak Patuh, Tidak Diperiksa, %, pelanggaran terbanyak); tombol Tandai Selesai; unduh laporan unit (Excel/PDF). |
+| Rekap Bidang Saya | Gabungan seluruh unit tugasnya. |
+| Pengaturan Akun | Ganti password sendiri. |
+
+---
+
+## 10. Integrasi SIMPEG
+
+### 10.1 Endpoint
+
+Foto dan identitas pegawai diambil dari API SIMPEG Pemerintah Provinsi Kalimantan Selatan:
+
+```
+GET https://simpeg.kalselprov.go.id/api/identitas?nip={nip}
+```
+
+Hasil verifikasi pada 17 November 2026:
+
+- Endpoint terbuka tanpa autentikasi dan mengembalikan larik (array) JSON; satu elemen untuk NIP yang ditemukan, larik kosong untuk NIP yang tidak ditemukan.
+- NIP PNS dan PPPK dengan nomor lengkap 18 digit ditemukan, termasuk URL foto resmi pegawai.
+- NIP 15 digit dari berkas asal (nomor tidak lengkap) mengembalikan larik kosong.
+
+### 10.2 Pemetaan Field
+
+| Field API | Pemakaian di SIMPATIK |
+|---|---|
+| nip | Kunci pencocokan dengan data induk pegawai |
+| nama, gelar_depan, gelar_belakang | Nama tampil pada daftar dan detail pegawai |
+| jabatan | Tampil pada daftar dan detail pegawai |
+| pangkat, golongan | Tampil pada halaman detail pegawai |
+| status_pns | Tampil sebagai status kepegawaian (PNS/PPPK/PPPK Paruh Waktu) |
+| satker, unker | Referensi pada data induk; tidak menentukan unit tugas ceklist |
+| images | URL foto pegawai; diunduh dan disimpan sebagai salinan di server SIMPATIK |
+| email, telpon, alamat, tanggal_lahir, agama, tempat_lahir | **Tidak diambil dan tidak ditampilkan** — tidak relevan dengan penilaian pakaian dinas |
+
+### 10.3 Strategi Sinkronisasi
+
+| ID | Aturan |
+|---|---|
+| INT-01 | Pengambilan data SIMPEG dilakukan oleh server SIMPATIK, bukan oleh peramban Kabid. |
+| INT-02 | Hasil pengambilan (identitas terpilih + foto) disimpan sebagai salinan lokal (entitas IdentitasSimpeg). Daftar pegawai selalu dirender dari salinan lokal agar cepat dan tetap tampil apabila SIMPEG lambat atau tidak dapat dijangkau. |
+| INT-03 | Sinkronisasi berjalan pada saat: impor pegawai awal, penambahan pegawai baru, dan perintah manual Admin "Sinkronkan SIMPEG" (per pegawai, per unit, atau seluruh pegawai). |
+| INT-04 | Apabila API mengembalikan larik kosong untuk suatu NIP, pegawai ditandai "Tidak ditemukan di SIMPEG"; foto tampil sebagai inisial nama dan Admin diberi tahu melalui daftar peringatan kualitas data. |
+| INT-05 | Apabila API tidak dapat dijangkau, sinkronisasi ditunda tanpa mengubah data yang sudah tersimpan; kegagalan dicatat dan dapat diulang Admin. |
+| INT-06 | Penugasan pegawai ke unit kerja selalu mengikuti data induk SIMPATIK yang dikelola Admin, bukan field satker dari SIMPEG, karena pembagian unit pada formulir tidak sama persis dengan struktur satker SIMPEG. |
+
+---
+
+## 11. Kebutuhan Non-Fungsional
+
+| Aspek | Kebutuhan |
+|---|---|
+| Keamanan | Password ter-hash; sesi masuk berakhir otomatis setelah tidak aktif; seluruh akses melalui HTTPS; hak akses ditegakkan di server (bukan hanya menyembunyikan menu). |
+| Privasi data | Hanya field identitas yang relevan dengan penilaian yang diambil dari SIMPEG dan ditampilkan. Foto dan identitas pegawai hanya dapat dilihat Admin dan Kabid penanggung jawab unitnya. |
+| Kinerja | Daftar pegawai unit terbesar (232 orang) tampil tanpa memanggil API SIMPEG secara langsung; foto dimuat sebagai salinan lokal berukuran kecil (thumbnail) pada daftar dan ukuran besar hanya pada halaman detail. |
+| Keandalan | Penyimpanan draf penilaian dilakukan per pegawai setiap kali disimpan, sehingga gangguan koneksi tidak menghilangkan pekerjaan satu formulir penuh. |
+| Ketersediaan | Aplikasi berjalan di server yang menyala selama jam kerja rumah sakit; kebutuhan di luar jam kerja bersifat pengisian lanjutan oleh Kabid. |
+| Pencadangan | Basis data dan salinan foto dicadangkan berkala oleh pengelola server; laporan periode tertutup dapat diterbitkan ulang dari data arsip. |
+| Bahasa & tampilan | Seluruh antarmuka Bahasa Indonesia. Tampilan Kabid dirancang untuk layar telepon genggam: target ketuk besar, satu pegawai satu layar, kontras cukup untuk pemakaian di ruangan terang. |
+| Kompatibilitas | Peramban modern di Android dan komputer (Chrome/Edge). PWA dapat dipasang dari Chrome Android. |
+
+---
+
+## 12. Batasan dan Asumsi
+
+- Jumlah peran hanya dua (Admin dan Kabid). Tidak ada peran penilai lain, kepala instalasi, maupun atasan penengah pada Fase 1.
+- Satu unit pada satu periode memiliki tepat satu Kabid penanggung jawab.
+- API SIMPEG diasumsikan tetap tersedia dengan format yang sama; SIMPATIK tidak bergantung padanya untuk proses penilaian (hanya untuk foto dan identitas).
+- Data awal pegawai berasal dari berkas "Cheklist Pakaian Dinas.xlsx"; tidak ada integrasi langsung ke basis data kepegawaian lain selain API SIMPEG per NIP.
+- Penilaian dilakukan terhadap pegawai yang tercantum pada cuplikan daftar formulir periode berjalan (BR-07), termasuk pegawai yang pada bulan tersebut berstatus Tidak Diperiksa.
+- Aplikasi tidak menilai kehadiran/absensi; status Tidak Diperiksa bukan data absensi dan tidak boleh dipakai sebagai pengganti data kehadiran resmi.
+
+---
+
+## 13. Fase Pengembangan
+
+### 13.1 Fase 1 (MVP) — sesuai dokumen ini
+
+Seluruh kebutuhan berprioritas W pada Bab 6: autentikasi, data induk, impor awal + validasi, sinkronisasi SIMPEG, item periksa bercuplikan, periode, penilaian berfoto oleh Kabid, pemantauan dan rekap, laporan Excel/PDF dengan cap SEMENTARA, dan riwayat perubahan.
+
+### 13.2 Kandidat Fase 2
+
+| Kandidat | Catatan |
+|---|---|
+| Pengingat WhatsApp otomatis | Ke Kabid yang formulirnya belum selesai menjelang penutupan periode; memerlukan gateway WhatsApp dan pemeliharaan nomor HP Kabid. |
+| Mode luring (offline) | Pengisian tanpa koneksi lalu sinkronisasi saat tersambung; relevan bila sinyal di ruangan perawatan buruk. |
+| Tanda tangan digital / kode verifikasi laporan | Gambar tanda tangan Kabid atau kode QR verifikasi pada laporan PDF. |
+| Foto bukti pelanggaran | Kabid melampirkan foto pada pegawai Tidak Patuh. |
+| Grafik tren antarbulan | Perbandingan persentase kepatuhan per unit antarperiode dan daftar pegawai berulang melanggar. |
+| Notifikasi push PWA | Pengingat di dalam perangkat Kabid tanpa WhatsApp. |
+
+---
+
+## 14. Keputusan Desain Terkunci
+
+Seluruh keputusan berikut disepakati bersama pemilik produk pada 17 November 2026 dan menjadi dasar dokumen ini.
+
+| No | Keputusan | Isi |
+|---|---|---|
+| #1 | Frekuensi | Sebulan sekali per unit: satu formulir per unit per bulan; periode = bulan + tahun (22 formulir per periode). |
+| #2 | Status Tidak Diperiksa | Ada; beserta alasan; tidak dihitung patuh maupun pelanggar; penyebut persentase kepatuhan hanya pegawai yang diperiksa. |
+| #3 | Penguncian | Kabid masih dapat mengedit formulir yang sudah ditandai selesai selama periode belum ditutup Admin; penguncian hanya terjadi saat Admin menutup periode; rekap sebelum penutupan berstatus SEMENTARA. |
+| #4 | Platform | Web + PWA: satu sistem web responsif; Admin di laptop, Kabid memasangnya seperti aplikasi di HP. PWA berarti dapat dipasang, bukan otomatis luring penuh. |
+| #5 | Login | Username + password yang dibuatkan Admin; username memakai NIP Kabid; Admin dapat mereset password; tidak memakai akun Google pribadi. |
+| #6 | Item periksa | Dapat dikelola Admin (tambah/ubah/nonaktifkan); perubahan berlaku mulai periode berikutnya; setiap periode menyimpan cuplikan daftar itemnya sendiri. |
+| #7 | Pengingat | Cukup pantauan progres di dasbor Admin dan pengingat di dalam aplikasi untuk Kabid; tidak ada pengingat WhatsApp otomatis pada Fase 1. |
+| #8 | Alur penilaian & SIMPEG | Daftar pegawai per unit beserta foto; diklik membuka detail pegawai beserta ceklistnya; foto dan detail identitas diambil dari API SIMPEG berdasarkan NIP dan disimpan sebagai salinan di server. |
+| #9 | Laporan | Excel + PDF: per unit dengan format formulir resmi (termasuk blok tanda tangan Kabid), plus rekap gabungan seluruh RS khusus Admin. |
+| #10 | Tanggal pemeriksaan | Otomatis: tanggal saat Kabid menandai formulir selesai, dicatat sistem dan tampil pada laporan menggantikan kolom Hari/Tanggal. |
+| #11 | Nama aplikasi | SIMPATIK — Sistem Monitoring Kepatuhan Pakaian Dinas & Atribut ASN. |
+
+---
+
+## 15. Hal yang Masih Terbuka
+
+| No | Hal Terbuka | Keterangan |
+|---|---|---|
+| 1 | Server dan alamat (domain/subdomain) tempat SIMPATIK akan dipasang | Ditentukan menjelang pembangunan; memengaruhi akses Kabid dari luar jaringan RS. |
+| 2 | Batas waktu penutupan periode | Saat ini Admin menutup periode secara manual; apakah perlu tanggal baku (mis. tanggal 5 bulan berikutnya) belum diputuskan. |
+| 3 | Pejabat penanggung jawab JKN | Pada berkas asal, formulir JKN ditandatangani Kasubbag, bukan Kabid; akun penilai unit tersebut mengikuti penugasan Admin dan tidak mengubah aturan dua peran. |
+| 4 | Perbaikan data awal | 39 NIP tidak lengkap, 18 NIP duplikat, dan 3 NIP kosong (Lampiran C) perlu dilengkapi oleh unit kepegawaian agar seluruh pegawai memiliki foto SIMPEG. |
+| 5 | Ketidaksesuaian nama penanda tangan | Ditemukan satu NIP penanda tangan pada berkas asal yang namanya berbeda pada SIMPEG; perlu dipastikan NIP yang benar sebelum data awal dimuat. |
+
+---
+
+## 16. Lampiran A — Daftar Unit Kerja dan Pemetaan Penanggung Jawab
+
+Jumlah pegawai berdasarkan berkas asal (Oktober 2026). Penanggung jawab berdasarkan blok tanda tangan setiap tab pada berkas asal.
+
+| No | Unit Kerja | Jumlah Pegawai | Penanggung Jawab (berkas asal) |
+|---|---|---|---|
+| 1 | Bagian Keuangan | 21 | Kepala Bidang Keuangan — Muhammad Fahmi Arif, S.Kom, MM |
+| 2 | Bagian Umum Kepegawaian (UMPEG) | 47 | Kepala Bidang Umum & Kepegawaian — Nor Hikmah, S.Kep, Ns, M.Kep |
+| 3 | Instalasi JKN | 11 | Kasubbag Penerimaan & Mobilisasi Dana — M. Nahdiansyah Abdi, S.Psi |
+| 4 | Bagian Perencanaan & Organisasi | 11 | Kepala Bagian Perencanaan & Organisasi — Muhammad Baihaki, S.Kep, Ns, MM |
+| 5 | Bidang Hukum & Informasi | 20 | Kepala Bidang Hukum & Informasi — H. Asmadiannor, S.Kep, Ns, M.Kes |
+| 6 | Bidang Penunjang & Non Medik | 27 | Kepala Bidang Penunjang & Non Medik — Said, SH, LL.M |
+| 7 | Bidang Pendidikan, Penelitian & Pengembangan (Diklat) | 8 | Kepala Bidang Diklat — Hj. Lisa Mahliyani, S.Kep, Ns, MM |
+| 8 | Bidang Pelayanan Medik | 7 | Kepala Bidang Pelayanan Medik — Ideris, SP, M.Kes |
+| 9 | Komite Medik | 28 | Kepala Bidang Pelayanan Medik — Ideris, SP, M.Kes |
+| 10 | Bidang Penunjang Medik | 5 | Hajjah Nurhikmah, S.ST, M.Kes |
+| 11 | Instalasi Gizi | 25 | Hajjah Nurhikmah, S.ST, M.Kes |
+| 12 | Instalasi Farmasi | 27 | Hajjah Nurhikmah, S.ST, M.Kes |
+| 13 | Instalasi Laboratorium | 14 | Hajjah Nurhikmah, S.ST, M.Kes |
+| 14 | Instalasi Rekam Medik | 17 | Hajjah Nurhikmah, S.ST, M.Kes |
+| 15 | Instalasi Rehab Medik | 12 | Hajjah Nurhikmah, S.ST, M.Kes |
+| 16 | Instalasi Psikologi | 9 | Hajjah Nurhikmah, S.ST, M.Kes |
+| 17 | Instalasi Loundry | 8 | Hajjah Nurhikmah, S.ST, M.Kes |
+| 18 | Instalasi Rehabilitasi Psikososial | 10 | Hajjah Nurhikmah, S.ST, M.Kes |
+| 19 | Poli Gilut & Radiologi | 7 | Hajjah Nurhikmah, S.ST, M.Kes |
+| 20 | Bidang Keperawatan | 16 | Kepala Bidang Keperawatan — Noorlianisyah, SKM |
+| 21 | Instalasi Rawat Inap | 232 | Kepala Bidang Keperawatan — Noorlianisyah, SKM |
+| 22 | Instalasi Rawat Jalan | 12 | Kepala Bidang Keperawatan — Noorlianisyah, SKM |
+| | **Total** | **574** | |
+
+Ringkasan beban penanggung jawab: Kabid Keperawatan 3 unit / 260 pegawai; Kabid Penunjang Medik 10 unit / 134 pegawai; Kabid Pelayanan Medik 2 unit / 35 pegawai; penanggung jawab lainnya masing-masing 1 unit / 7–47 pegawai.
+
+Catatan: pada berkas asal, blok tanda tangan sepuluh tab instalasi penunjang tertulis berjudul "Kepala Bidang Pelayanan Medik" untuk Hajjah Nurhikmah — diduga sisa penyalinan templat. Pada SIMPATIK, judul jabatan penanda tangan mengikuti data akun penanggung jawab yang diatur Admin, sehingga ketidaksesuaian ini tidak terulang.
+
+---
+
+## 17. Lampiran B — Format Laporan Per Unit
+
+Laporan per unit (Excel dan PDF) mengikuti tata letak formulir asal:
+
+1. Kepala: "FORMULIR CEKLIST MONITORING KEPATUHAN PAKAIAN DINAS ASN RSJ SAMBANG LIHUM TAHUN \<tahun\>".
+2. Identitas: Bulan (periode), Instalasi/Ruangan/Unit Kerja, Hari/Tanggal (tanggal pemeriksaan otomatis, BR-06).
+3. Tabel penilaian: No, Nama, NIP, kolom per item periksa pada cuplikan periode (tanda √ untuk Memenuhi, tanda × untuk Tidak Memenuhi), kolom Sepatu, dan Keterangan (termasuk alasan Tidak Diperiksa).
+4. Rekap: Total Pegawai Diperiksa, Jumlah Patuh, Jumlah Pelanggaran, Jenis Pelanggaran Terbanyak — ditambah baris Jumlah Tidak Diperiksa dan Persentase Kepatuhan sesuai aturan Bab 7.
+5. Keterangan patuh: "PATUH: Jika Semua Item Terpenuhi / TIDAK PATUH: Jika Salah Satu Item Tidak Terpenuhi".
+6. Blok tanda tangan: "Atasan, \<jabatan penanggung jawab\>" diikuti nama dan NIP penanda tangan (cuplikan FR-NILAI-09).
+7. Cap "SEMENTARA" pada setiap halaman apabila periode belum ditutup (FR-LAP-05).
+
+---
+
+## 18. Lampiran C — Temuan Kualitas Data Awal
+
+Berdasarkan pemeriksaan berkas "Cheklist Pakaian Dinas.xlsx" pada 17 November 2026:
+
+| Temuan | Jumlah | Penanganan di SIMPATIK |
+|---|---|---|
+| NIP terduplikat (satu NIP pada dua pegawai, sebagian dengan nama berbeda) | 18 NIP | Impor tetap dilanjutkan dengan peringatan (FR-ADM-03, FR-IMP-02); Admin/unit kepegawaian memperbaiki pada data induk. |
+| Pegawai tanpa NIP (seluruhnya di Instalasi Rawat Inap) | 3 pegawai | Tetap dinilai; tanpa foto SIMPEG sampai NIP dilengkapi (FR-IMP-03). |
+| NIP 15 digit (tidak ditemukan pada SIMPEG; pola nomor tidak lengkap) | 39 pegawai | Sama seperti di atas; daftar nama tersedia pada laporan validasi impor. |
+| NIP dengan format tidak beraturan (14 digit; spasi di tengah nomor) | 2 pegawai | Ditandai pada laporan validasi impor untuk diperbaiki. |
+| Nama penanda tangan satu unit berbeda dengan nama pada SIMPEG untuk NIP yang sama | 1 kasus | Dipastikan manual sebelum pemuatan data awal (Bab 15 butir 5). |
+| Blok tanda tangan 10 tab instalasi memakai judul jabatan yang sama (sisa templat) | 10 tab | Tidak berlaku lagi; jabatan mengikuti data akun (Lampiran A). |
+
+---
+
+## 19. Lampiran D — Contoh Desain Antarmuka
+
+Lampiran ini memuat contoh desain antarmuka untuk **seluruh layar** SIMPATIK sebagaimana dirinci pada Bab 9: halaman masuk (versi desktop dan mobile), 9 layar Admin pada Web Admin (desktop), dan 6 layar Kabid pada PWA (mobile) — total 17 tampilan. Gambar-gambar berikut adalah **contoh desain (mockup)**, bukan tangkapan layar aplikasi jadi; tujuannya memberi gambaran tata letak, alur, dan elemen setiap layar. Nama pegawai, angka progres, dan status pada contoh mengikuti pola data asli formulir asal (periode contoh: November 2026) dan bersifat ilustratif antarlayar. Foto pegawai pada contoh diganti lingkaran inisial nama atau siluet; pada aplikasi nyata, foto yang tampil adalah foto resmi pegawai dari SIMPEG (Bab 10).
+
+### D.1 Halaman Masuk
+
+Satu halaman masuk untuk kedua peran; peran pengguna menentukan menu yang tampil setelah masuk (FR-AUTH-01, FR-AUTH-04). Tidak ada pendaftaran mandiri; pengguna yang lupa password menghubungi Admin untuk reset (FR-AUTH-02).
+
+
+**D.1.1 Halaman Masuk — Versi Desktop**
+
+![D.1.1 Halaman Masuk — Versi Desktop](../presentasi-simpatik/ui/ui-login-desktop.png)
+
+Panel kiri berisi identitas aplikasi dan institusi; panel kanan berisi formulir username (NIP bagi Kabid) dan password serta tombol Masuk. Tampilan ini yang dilihat Admin di laptop dan Kabid bila membuka dari peramban desktop.
+
+**D.1.2 Halaman Masuk — Versi Mobile (PWA Kabid)**
+
+![D.1.2 Halaman Masuk — Versi Mobile (PWA Kabid)](../presentasi-simpatik/ui/ui-login-mobile.png)
+
+Versi layar HP dari halaman yang sama, ditambah petunjuk memasang SIMPATIK ke layar utama (home screen) agar tampil seperti aplikasi (Keputusan #4).
+
+
+### D.2 Layar Admin — Web Admin (Desktop)
+
+
+**D.2.1 Dasbor Periode**
+
+![D.2.1 Dasbor Periode](../presentasi-simpatik/ui/ui-admin-dasbor.png)
+
+Kartu ringkasan periode (total pegawai, sudah dinilai, patuh, tidak patuh, tidak diperiksa); tabel pantauan seluruh unit berisi Kabid penanggung jawab, garis progres, dan status formulir (FR-REK-01); tombol Tutup Periode (FR-PER-03); catatan bahwa rekap berstatus SEMENTARA selama periode belum ditutup (FR-REK-05).
+
+**D.2.2 Kelola Unit Kerja**
+
+![D.2.2 Kelola Unit Kerja](../presentasi-simpatik/ui/ui-admin-unit.png)
+
+Daftar 22 unit beserta jumlah pegawai, Kabid penanggung jawab, dan status aktif; tombol Tambah Unit. Unit yang sudah memiliki formulir hanya dapat dinonaktifkan, tidak dihapus (FR-ADM-01).
+
+**D.2.3 Kelola Pegawai**
+
+![D.2.3 Kelola Pegawai](../presentasi-simpatik/ui/ui-admin-pegawai.png)
+
+Daftar pegawai dengan foto/inisial, NIP, unit, status kepegawaian, dan status sinkronisasi SIMPEG; pita peringatan kualitas data (NIP duplikat, tanpa NIP, tidak ditemukan di SIMPEG); pencarian dan saringan per unit; tombol Sinkronkan SIMPEG dan Tambah Pegawai (FR-ADM-02, FR-ADM-05, INT-03).
+
+**D.2.4 Impor Pegawai dari Excel**
+
+![D.2.4 Impor Pegawai dari Excel](../presentasi-simpatik/ui/ui-admin-impor.png)
+
+Area unggah berkas berformat formulir asal, ringkasan berkas terbaca, dan laporan validasi impor (NIP duplikat, NIP kosong, NIP tidak ditemukan di SIMPEG, format tidak beraturan) yang harus diperiksa Admin sebelum menyimpan (FR-IMP-01, FR-IMP-02).
+
+**D.2.5 Akun Pengguna & Penugasan**
+
+![D.2.5 Akun Pengguna & Penugasan](../presentasi-simpatik/ui/ui-admin-pengguna.png)
+
+Daftar akun Admin/Kabid dengan username, peran, jumlah unit tugas, dan status; panel penugasan menampilkan unit-unit seorang Kabid sebagai chip yang dapat ditambah/dihapus — satu Kabid dapat memegang banyak unit (FR-AUTH-02, FR-ADM-04).
+
+**D.2.6 Kelola Item Periksa**
+
+![D.2.6 Kelola Item Periksa](../presentasi-simpatik/ui/ui-admin-item.png)
+
+Daftar item periksa berurutan beserta kelompok dan sakelar aktif; keterangan bahwa perubahan berlaku mulai periode berikutnya dan periode berjalan memakai cuplikannya apa adanya (FR-ITM-01, FR-ITM-02).
+
+**D.2.7 Rekap Gabungan Rumah Sakit**
+
+![D.2.7 Rekap Gabungan Rumah Sakit](../presentasi-simpatik/ui/ui-admin-rekap.png)
+
+Kartu kepatuhan RS, jumlah diperiksa, pelanggaran terbanyak, dan unit tertinggi; tabel peringkat unit dengan Diperiksa/Patuh/Tidak Patuh/% Patuh; tombol Unduh Excel dan Unduh PDF. Hanya untuk Admin (FR-REK-04, FR-LAP-03).
+
+**D.2.8 Detail Formulir (Baca-Saja)**
+
+![D.2.8 Detail Formulir (Baca-Saja)](../presentasi-simpatik/ui/ui-admin-detail-formulir.png)
+
+Isi satu formulir apa adanya: ringkasan angka formulir, panel riwayat (dibuat, ditandai selesai, diubah setelah selesai), dan tabel tanda per pegawai per item beserta hasil akhirnya. Admin tidak mengubah isi; perbaikan hanya oleh Kabid pemilik formulir (FR-AUD-01, Bab 4.2).
+
+**D.2.9 Pengaturan Akun Admin**
+
+![D.2.9 Pengaturan Akun Admin](../presentasi-simpatik/ui/ui-admin-pengaturan.png)
+
+Kartu profil (nama, peran, username yang tidak dapat diubah), panel keluar (logout), dan formulir ganti password (FR-AUTH-02).
+
+
+### D.3 Layar Kabid — PWA (Mobile)
+
+
+**D.3.1 Beranda Kabid**
+
+![D.3.1 Beranda Kabid](../presentasi-simpatik/ui/ui-kabid-beranda.png)
+
+Sapaan personal beserta jabatan dan periode berjalan; kartu pengingat kuning untuk formulir yang belum ditandai selesai lengkap dengan sisa pegawainya (FR-NILAI-11); daftar unit tugas dengan garis progres dan lencana status; navigasi bawah Beranda, Penilaian, Rekap, Akun.
+
+**D.3.2 Daftar Pegawai Unit**
+
+![D.3.2 Daftar Pegawai Unit](../presentasi-simpatik/ui/ui-kabid-daftar-pegawai.png)
+
+Garis progres unit, pencarian nama, saringan status, dan daftar pegawai berfoto dari SIMPEG dengan lencana Patuh / Tidak Patuh / Tidak Diperiksa / Belum Dinilai; catatan item yang dilanggar dan alasan Tidak Diperiksa tampil pada kartu pegawai (FR-NILAI-02).
+
+**D.3.3 Detail Pegawai & Ceklist**
+
+![D.3.3 Detail Pegawai & Ceklist](../presentasi-simpatik/ui/ui-kabid-detail-ceklist.png)
+
+Foto besar dan identitas SIMPEG pegawai; sakelar Tidak Diperiksa beserta alasan; tombol Tandai Semua Patuh; item periksa dengan pilihan Memenuhi/Tidak Memenuhi; hasil yang dihitung seketika; kolom keterangan; tombol Simpan & Berikutnya (FR-NILAI-03 s.d. FR-NILAI-07).
+
+**D.3.4 Ringkasan Formulir**
+
+![D.3.4 Ringkasan Formulir](../presentasi-simpatik/ui/ui-kabid-ringkasan-formulir.png)
+
+Persentase kepatuhan formulir dan rincian Total/Diperiksa/Patuh/Tidak Patuh/Tidak Diperiksa/Belum Dinilai; pelanggaran terbanyak unit; keterangan tanggal pemeriksaan otomatis; tombol Tandai Formulir Selesai (hanya aktif bila Belum Dinilai = 0); tombol unduh laporan unit Excel/PDF (FR-NILAI-09, FR-LAP-01).
+
+**D.3.5 Rekap Bidang Saya**
+
+![D.3.5 Rekap Bidang Saya](../presentasi-simpatik/ui/ui-kabid-rekap-bidang.png)
+
+Kepatuhan gabungan seluruh unit tugas Kabid, rincian per unit dengan garis progres dan persentase, pelanggaran terbanyak bidang, dan catatan status SEMENTARA selama periode belum ditutup (FR-REK-03).
+
+**D.3.6 Pengaturan Akun Kabid**
+
+![D.3.6 Pengaturan Akun Kabid](../presentasi-simpatik/ui/ui-kabid-pengaturan.png)
+
+Kartu profil Kabid (nama, jabatan, NIP, jumlah unit tugas), formulir ganti password (saat ini, baru, konfirmasi), tombol keluar, dan keterangan versi aplikasi (FR-AUTH-02).
+
+---
+
+## 20. Riwayat Versi
+
+| Versi | Tanggal | Keterangan |
+|---|---|---|
+| Draft v0.1 | 17 November 2026 | Dokumen pertama. Disusun dari analisis berkas formulir asal dan keputusan desain #1–#11 yang dikunci pada tanggal yang sama. Verifikasi langsung API SIMPEG termasuk di dalamnya. Pembangunan aplikasi belum dimulai. |
+| Draft v0.2 | 17 November 2026 | Menambahkan Lampiran D — Contoh Desain Antarmuka (4 contoh desain layar utama: Beranda Kabid, Daftar Pegawai Unit, Detail Pegawai & Ceklist, Dasbor Admin) beserta rujukan silang dari Bab 9. Isi keputusan dan kebutuhan tidak berubah dari v0.1. |
+| Draft v0.3 | 17 November 2026 | Lampiran D dilengkapi menjadi seluruh layar pada Bab 9: halaman masuk versi desktop dan mobile, 9 layar Admin, dan 6 layar Kabid (total 17 tampilan, termasuk 4 tampilan dari v0.2). Isi keputusan dan kebutuhan tidak berubah dari v0.2. |

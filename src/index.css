@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-paper text-ink antialiased;
+    font-feature-settings: "ss01", "cv11";
+    min-height: 100dvh;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply tracking-tight;
+  }
+  ::selection {
+    @apply bg-brand-200 text-brand-950;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #c9d5d1 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #c9d5d1;
+    border-radius: 999px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-white shadow-soft;
+  }
+  .field-label {
+    @apply mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/55;
+  }
+  .input-base {
+    @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm text-ink shadow-sm outline-none transition placeholder:text-ink/30 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10 disabled:cursor-not-allowed disabled:bg-stone-50 disabled:text-ink/50;
+  }
+  .table-head {
+    @apply bg-[#fbfaf7] text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/45;
+  }
+  .scroll-thin {
+    scrollbar-width: thin;
+  }
+  .brand-pattern {
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(209, 165, 69, 0.22), transparent 28%),
+      radial-gradient(circle at 92% 2%, rgba(131, 191, 180, 0.28), transparent 34%),
+      repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 16px);
+  }
+  .paper-grain {
+    background-image: radial-gradient(rgba(30, 85, 78, 0.08) 0.55px, transparent 0.55px);
+    background-size: 18px 18px;
+  }
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-paper;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
